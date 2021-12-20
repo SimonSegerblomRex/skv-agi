@@ -4,12 +4,14 @@ Specification:
 https://www.skatteverket.se/download/18.339cd9fe17d1714c0772aec/1639485591598/Bilaga%20Struktur,%20XML-dokument_1.1.11.1.xlsx
 
 Test:
-https://sso.test.skatteverket.se/dama141/da_testtjanst_web/index.jsp?method=test#!/start
+https://sso.test.skatteverket.se/dama141/da_testtjanst_web/login.do?method=test
 """
 import datetime
+from collections import namedtuple
 
 from lxml import etree
 
+User = namedtuple("User", ["name", "phone", "email"])
 
 NSMAP = {
     None: "http://xmls.skatteverket.se/se/skatteverket/da/instans/schema/1.1",
@@ -22,42 +24,47 @@ agd = lambda s: f"{{{NSMAP['agd']}}}{s}"
 root = etree.Element("Skatteverket", omrade="Arbetsgivardeklaration", nsmap=NSMAP)
 
 
-def add_sender(root):
+def add_sender(root, user):
     """Avsandare"""
     sender = etree.SubElement(root, agd("Avsandare"))
 
     software = etree.SubElement(sender, agd("Programnamn"))
     software.text = "skv-agi"
+
+    # Since the file will be submitted manually it
+    # makes most sense to use the contact information
+    # for the user here.
     orgnbr = etree.SubElement(sender, agd("Organisationsnummer"))
-    orgnbr.text = "167460001667"  # FIXME ?
+    orgnbr.text = "167460001667"  # FIXME
 
     contact = etree.SubElement(sender, agd("TekniskKontaktperson"))
     name = etree.SubElement(contact, agd("Namn"))
-    name.text = "Simon Segerblom Rex"
+    name.text = user.name
     phone = etree.SubElement(contact, agd("Telefon"))
-    phone.text = "0"
+    phone.text = user.phone or "-"
     email = etree.SubElement(contact, agd("Epostadress"))
-    email.text = "SimonSegerblomRex@users.noreply.github.com"
+    email.text = user.email
 
     created = etree.SubElement(sender, agd("Skapad"))
     created.text = datetime.datetime.now().isoformat()
 
 
-def add_common(root):
+def add_common(root, user):
     """Blankettgemensamt"""
     common = etree.SubElement(root, agd("Blankettgemensamt"))
 
     employer = etree.SubElement(common, agd("Arbetsgivare"))
+
     orgnbr = etree.SubElement(employer, agd("AgRegistreradId"))
-    orgnbr.text = "167460001667"  # FIXME: Parse from config
+    orgnbr.text = "167460001667"  # FIXME
 
     contact = etree.SubElement(employer, agd("Kontaktperson"))
     name = etree.SubElement(contact, agd("Namn"))
-    name.text = "Test"  # FIXME
+    name.text = user.name
     phone = etree.SubElement(contact, agd("Telefon"))
-    phone.text = "046-010203"  # FIXME
+    phone.text = user.phone or "-"
     email = etree.SubElement(contact, agd("Epostadress"))
-    email.text = "tmp@tmp.no"  # FIXME
+    email.text = user.email
 
 
 def add_hu(root):
@@ -103,23 +110,32 @@ def add_iu(root):
     receiver = etree.SubElement(iu, agd("BetalningsmottagareIUGROUP"))
     receiverg = etree.SubElement(receiver, agd("BetalningsmottagareIDChoice"))
     receiverid = etree.SubElement(receiverg, agd("BetalningsmottagarId"), faltkod="215")
-    receiverid.text = "198202252386"  # FIXME
+    receiverid.text = "198202252386"  # FIXME Personnummer
 
     period = etree.SubElement(iu, agd("RedovisningsPeriod"), faltkod="006")
     period.text = "202112"  # FIXME
 
-    # FIXME!!! Allt hardkodat nedanfor...
     specnbr = etree.SubElement(iu, agd("Specifikationsnummer"), faltkod="570")
-    specnbr.text = "001"
+    specnbr.text = str(1)  # FIXME: Unique for each IU
 
     taxred = etree.SubElement(iu, agd("AvdrPrelSkatt"), faltkod="001")
-    taxred.text = "9300"
+    taxred.text = "1500"
+
+    tmp = 85 #FIMXE
+    if tmp < 1000:
+        paid = etree.SubElement(iu, agd("KontantErsattningEjUlagSA"), faltkod="131")
+        paid.text = str(tmp)
+    else:
+        paid = etree.SubElement(iu, agd("KontantErsattningUlagAG"), faltkod="011")
+        paid.text = str(tmp)
 
 
-add_sender(root)
-add_common(root)
+user = User(name="XY", phone=None, email="no@no.no")
+add_sender(root, user)
+add_common(root, user)
 add_hu(root)
 add_iu(root)
+
 
 tree = etree.ElementTree(root)
 tree.write(
