@@ -7,11 +7,26 @@ Test:
 https://sso.test.skatteverket.se/dama141/da_testtjanst_web/login.do?method=test
 """
 import datetime
-from collections import namedtuple
+from dataclasses import dataclass
 
 from lxml import etree
 
-User = namedtuple("User", ["name", "phone", "email"])
+
+@dataclass
+class User:
+    """...."""
+
+    id: int
+    name: str
+    email: str
+    phone: str = None
+
+@dataclass
+class Payment:
+    """..."""
+    id: int
+    gross: float
+
 
 NSMAP = {
     None: "http://xmls.skatteverket.se/se/skatteverket/da/instans/schema/1.1",
@@ -35,7 +50,7 @@ def add_sender(root, user):
     # makes most sense to use the contact information
     # for the user here.
     orgnbr = etree.SubElement(sender, agd("Organisationsnummer"))
-    orgnbr.text = "167460001667"  # FIXME
+    orgnbr.text = str(user.id)
 
     contact = etree.SubElement(sender, agd("TekniskKontaktperson"))
     name = etree.SubElement(contact, agd("Namn"))
@@ -56,7 +71,7 @@ def add_common(root, user):
     employer = etree.SubElement(common, agd("Arbetsgivare"))
 
     orgnbr = etree.SubElement(employer, agd("AgRegistreradId"))
-    orgnbr.text = "167460001667"  # FIXME
+    orgnbr.text = str(user.id)
 
     contact = etree.SubElement(employer, agd("Kontaktperson"))
     name = etree.SubElement(contact, agd("Namn"))
@@ -87,10 +102,10 @@ def add_hu(root):
     period = etree.SubElement(hu, agd("RedovisningsPeriod"), faltkod="006")
     period.text = "202112"  # FIXME
 
-    # FIXME: Some more stuff maybe
+    # FIXME: Some more stuff maybe..?
 
 
-def add_iu(root):
+def add_iu(root, nbr, payment):
     """Individuppgift"""
     form = etree.SubElement(root, agd("Blankett"))
 
@@ -116,39 +131,48 @@ def add_iu(root):
     period.text = "202112"  # FIXME
 
     specnbr = etree.SubElement(iu, agd("Specifikationsnummer"), faltkod="570")
-    specnbr.text = str(1)  # FIXME: Unique for each IU
+    specnbr.text = str(nbr)
 
     taxred = etree.SubElement(iu, agd("AvdrPrelSkatt"), faltkod="001")
-    taxred.text = "1500"
 
-    tmp = 85 #FIMXE
-    if tmp < 1000:
+    # Assuming only one payment per year so that iu.gross is the
+    # total amount for the whole year
+    if payment.gross < 1000:
+        taxred.text = "0"
         paid = etree.SubElement(iu, agd("KontantErsattningEjUlagSA"), faltkod="131")
-        paid.text = str(tmp)
+        paid.text = str(payment.gross)
     else:
+        # Ugly to do this here, but hard coding the deducted tax to 30 %
+        taxred.text = str(int(0.3 * payment.gross))
         paid = etree.SubElement(iu, agd("KontantErsattningUlagAG"), faltkod="011")
-        paid.text = str(tmp)
+        paid.text = str(payment.gross)
 
 
-user = User(name="XY", phone=None, email="no@no.no")
-add_sender(root, user)
-add_common(root, user)
-add_hu(root)
-add_iu(root)
+if __name__ == "__main__":
+    import toml
 
+    config = toml.load("test.toml")
+    sender = User(**config["sender"])
 
-tree = etree.ElementTree(root)
-tree.write(
-    "test.xml",
-    encoding="utf-8",
-    xml_declaration=True,
-    standalone=False,
-    pretty_print=True,
-)
+    add_sender(root, sender)
+    add_common(root, sender)
+    add_hu(root)
+    for i, payment in enumerate(config["payments"]):
+        add_iu(root, nbr=i + 1, payment=Payment(**payment))
 
-#https://github.com/lxml/lxml/pull/277
-with open("test.xml", "r+b") as f:
-    old = f.readline()
-    new = old.replace(b"'", b'"')
-    f.seek(0)
-    f.write(new)
+    tree = etree.ElementTree(root)
+    tree.write(
+        "test.xml",
+        encoding="utf-8",
+        xml_declaration=True,
+        standalone=False,
+        pretty_print=True,
+    )
+
+    # Skattverket's parser doesn't like single quotes...
+    # https://github.com/lxml/lxml/pull/277
+    with open("test.xml", "r+b") as f:
+        old = f.readline()
+        new = old.replace(b"'", b'"')
+        f.seek(0)
+        f.write(new)

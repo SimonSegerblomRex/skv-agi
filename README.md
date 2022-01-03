@@ -1,4 +1,18 @@
-# skv-agi
+Arbetsgivardeklaration (AGI) / PAYE tax return tools
+====================================================
+
+PAYE tax return / Arbetsgivardeklaration (AGI)
+
+At the moment this
+(bostadsföreningar / bostadsrättföreningar)
+
+Usage
+-----
+Install depednecies:
+```
+python3 -m pip install lxml
+```
+
 Lönespecifikation + arbetgsgivardeklaration
 
 * [Lämna arbetsgivardeklaration](https://skatteverket.se/foretag/arbetsgivare/lamnaarbetsgivardeklaration.4.41f1c61d16193087d7fcaeb.html)
