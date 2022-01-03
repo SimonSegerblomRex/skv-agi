@@ -14,18 +14,28 @@ from lxml import etree
 
 @dataclass
 class User:
-    """...."""
+    """User info."""
 
     id: int
     name: str
     email: str
     phone: str = None
 
+
 @dataclass
 class Payment:
-    """..."""
+    """Receiver info."""
+
     id: int
     gross: float
+
+
+@dataclass
+class Common:
+    """Common info."""
+
+    orgnbr: int
+    period: str
 
 
 NSMAP = {
@@ -82,53 +92,53 @@ def add_common(root, user):
     email.text = user.email
 
 
-def add_hu(root):
+def add_hu(root, common):
     """Huvuduppgift"""
     form = etree.SubElement(root, agd("Blankett"))
 
     info = etree.SubElement(form, agd("Arendeinformation"))
     orgnbr = etree.SubElement(info, agd("Arendeagare"))
-    orgnbr.text = "167460001667"  # FIXME
+    orgnbr.text = str(common.orgnbr)
     period = etree.SubElement(info, agd("Period"))
-    period.text = "202112"  # FIXME
+    period.text = common.period
 
     content = etree.SubElement(form, agd("Blankettinnehall"))
     hu = etree.SubElement(content, agd("HU"))
 
     employer = etree.SubElement(hu, agd("ArbetsgivareHUGROUP"))
     orgnbr = etree.SubElement(employer, agd("AgRegistreradId"), faltkod="201")
-    orgnbr.text = "167460001667"  # FIXME
+    orgnbr.text = str(common.orgnbr)
 
     period = etree.SubElement(hu, agd("RedovisningsPeriod"), faltkod="006")
-    period.text = "202112"  # FIXME
+    period.text = common.period
 
     # FIXME: Some more stuff maybe..?
 
 
-def add_iu(root, nbr, payment):
+def add_iu(root, nbr, payment, common):
     """Individuppgift"""
     form = etree.SubElement(root, agd("Blankett"))
 
     info = etree.SubElement(form, agd("Arendeinformation"))
     orgnbr = etree.SubElement(info, agd("Arendeagare"))
-    orgnbr.text = "167460001667"  # FIXME
+    orgnbr.text = str(common.orgnbr)
     period = etree.SubElement(info, agd("Period"))
-    period.text = "202112"  # FIXME
+    period.text = common.period
 
     content = etree.SubElement(form, agd("Blankettinnehall"))
     iu = etree.SubElement(content, agd("IU"))
 
     employer = etree.SubElement(iu, agd("ArbetsgivareIUGROUP"))
     orgnbr = etree.SubElement(employer, agd("AgRegistreradId"), faltkod="201")
-    orgnbr.text = "167460001667"  # FIXME
+    orgnbr.text = str(common.orgnbr)
 
     receiver = etree.SubElement(iu, agd("BetalningsmottagareIUGROUP"))
     receiverg = etree.SubElement(receiver, agd("BetalningsmottagareIDChoice"))
     receiverid = etree.SubElement(receiverg, agd("BetalningsmottagarId"), faltkod="215")
-    receiverid.text = "198202252386"  # FIXME Personnummer
+    receiverid.text = str(payment.id)
 
     period = etree.SubElement(iu, agd("RedovisningsPeriod"), faltkod="006")
-    period.text = "202112"  # FIXME
+    period.text = common.period
 
     specnbr = etree.SubElement(iu, agd("Specifikationsnummer"), faltkod="570")
     specnbr.text = str(nbr)
@@ -153,12 +163,16 @@ if __name__ == "__main__":
 
     config = toml.load("test.toml")
     sender = User(**config["sender"])
+    common = Common(
+        orgnbr=config["employer"]["id"],
+        period=f'{config["period"]["year"]}{config["period"]["month"]}',
+    )
 
     add_sender(root, sender)
     add_common(root, sender)
-    add_hu(root)
+    add_hu(root, common)
     for i, payment in enumerate(config["payments"]):
-        add_iu(root, nbr=i + 1, payment=Payment(**payment))
+        add_iu(root, nbr=i + 1, payment=Payment(**payment), common=common)
 
     tree = etree.ElementTree(root)
     tree.write(
