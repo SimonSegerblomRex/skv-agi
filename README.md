@@ -3,9 +3,6 @@ Arbetsgivardeklaration (AGI) / PAYE tax return tools
 
 PAYE tax return / Arbetsgivardeklaration (AGI)
 
-At the moment this
-(bostadsföreningar / bostadsrättföreningar)
-
 Usage
 -----
 Install depednecies:
