@@ -6,10 +6,13 @@ https://www.skatteverket.se/download/18.339cd9fe17d1714c0772aec/1639485591598/Bi
 Test:
 https://sso.test.skatteverket.se/dama141/da_testtjanst_web/login.do?method=test
 """
+import argparse
 import datetime
 from dataclasses import dataclass
+from pathlib import Path
 
 from lxml import etree
+import toml
 
 
 @dataclass
@@ -158,10 +161,12 @@ def add_iu(root, nbr, payment, common):
         paid.text = str(payment.gross)
 
 
-if __name__ == "__main__":
-    import toml
+def _cli():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("input", metavar="INPUT", help="*.toml file", type=Path)
+    args = parser.parse_args()
 
-    config = toml.load("test.toml")
+    config = toml.load(args.input)
     sender = User(**config["sender"])
     common = Common(
         orgnbr=config["employer"]["id"],
@@ -174,9 +179,10 @@ if __name__ == "__main__":
     for i, payment in enumerate(config["payments"]):
         add_iu(root, nbr=i + 1, payment=Payment(**payment), common=common)
 
+    output_filename = f"{args.input.stem}.xml"
     tree = etree.ElementTree(root)
     tree.write(
-        "test.xml",
+        output_filename,
         encoding="utf-8",
         xml_declaration=True,
         standalone=False,
@@ -185,8 +191,12 @@ if __name__ == "__main__":
 
     # Skattverket's parser doesn't like single quotes...
     # https://github.com/lxml/lxml/pull/277
-    with open("test.xml", "r+b") as f:
+    with open(output_filename, "r+b") as f:
         old = f.readline()
         new = old.replace(b"'", b'"')
         f.seek(0)
         f.write(new)
+
+
+if __name__ == "__main__":
+    _cli()
